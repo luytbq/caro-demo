@@ -3,7 +3,6 @@ package caro
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"time"
 )
 
@@ -15,6 +14,9 @@ type CaroGame struct {
 	currentPlayer     Player
 	winConditionCount int
 	Over              bool
+	HasWinner         bool
+	moves             int
+	totalTiles        int
 }
 
 type Tile struct {
@@ -28,16 +30,6 @@ type SearchVector struct {
 type Player struct {
 	sign string
 }
-
-const (
-	EMPTY               = " "
-	SIGN_1              = "X"
-	SIGN_2              = "O"
-	WIN_CONDITION_COUNT = 4
-	NEW_LINE            = "\n"
-	V_DASH              = "|"
-	H_DASH              = "----"
-)
 
 func (g *CaroGame) PrintBoard() {
 	buffer := bytes.Buffer{}
@@ -81,10 +73,11 @@ func (g *CaroGame) Move(x int, y int) {
 	}
 
 	g.board[y][x] = string(g.currentPlayer.sign)
+	g.moves++
 	g.PrintBoard()
 
-	if g.checkWin(x, y) {
-		fmt.Printf("Player %s wins!\n", g.currentPlayer.sign)
+	g.checkWin(x, y)
+	if g.HasWinner {
 		return
 	}
 
@@ -101,10 +94,10 @@ func (g *CaroGame) nextTurn() {
 
 func (g *CaroGame) validateMove(x int, y int) error {
 	if !g.validTile(x, y) {
-		return fmt.Errorf("Invalid move (%d, %d): out of range", x, y)
+		return fmt.Errorf("invalid move (%d, %d): out of range", x, y)
 	}
 	if g.board[y][x] != EMPTY {
-		return fmt.Errorf("Invalid move (%d, %d): not an empty tile", x, y)
+		return fmt.Errorf("invalid move (%d, %d): not an empty tile", x, y)
 	}
 	return nil
 }
@@ -113,16 +106,42 @@ func (g *CaroGame) validTile(x int, y int) bool {
 	return x >= 0 && x < g.width && y >= 0 && y < g.height
 }
 
-func (g *CaroGame) checkWin(x int, y int) bool {
-	g.Over = g.checkWinByVector(x, y, 1, 0) || g.checkWinByVector(x, y, 0, 1) || g.checkWinByVector(x, y, 1, 1) || g.checkWinByVector(x, y, -1, -1)
-	if g.Over {
-		fmt.Printf("checkWinByVector(x, y, 1, 0) &b\n", g.checkWinByVector(x, y, 1, 0))
-		fmt.Printf("checkWinByVector(x, y, 0, 1) &b\n", g.checkWinByVector(x, y, 0, 1))
-		fmt.Printf("checkWinByVector(x, y, 1, 1) &b\n", g.checkWinByVector(x, y, 1, 1))
-		fmt.Printf("checkWinByVector(x, y, -1, -1) &b\n", g.checkWinByVector(x, y, -1, -1))
+func (g *CaroGame) checkWin(x int, y int) {
+	// c := make(chan bool)
+	// wg := sync.WaitGroup{}
+
+	// f := func(vectorX int, vectorY int) {
+	// 	defer wg.Done()
+	// 	c <- g.checkWinByVector(x, y, vectorX, vectorY)
+	// }
+
+	// wg.Add(4)
+	// go f(1, 0)
+	// go f(0, 1)
+	// go f(1, 1)
+	// go f(1, -1)
+
+	// wg.Wait()
+	// close(c)
+
+	// for hasWinner := range c {
+	// 	g.HasWinner = hasWinner
+	// 	break
+	// }
+
+	g.HasWinner = g.checkWinByVector(x, y, 1, 0) || g.checkWinByVector(x, y, 0, 1) || g.checkWinByVector(x, y, 1, 1) || g.checkWinByVector(x, y, 1, -1)
+	if g.HasWinner || g.moves == g.totalTiles {
+		g.Over = true
 	}
 
-	return g.Over
+	// debug
+	// if g.Over {
+	// 	fmt.Printf("checkWinByVector(x, y, 1, 0) %t\n", g.checkWinByVector(x, y, 1, 0))
+	// 	fmt.Printf("checkWinByVector(x, y, 0, 1) %t\n", g.checkWinByVector(x, y, 0, 1))
+	// 	fmt.Printf("checkWinByVector(x, y, 1, 1) %t\n", g.checkWinByVector(x, y, 1, 1))
+	// 	fmt.Printf("checkWinByVector(x, y, -1, -1) %t\n", g.checkWinByVector(x, y, -1, -1))
+	// }
+
 }
 
 func (g *CaroGame) checkWinByVector(x int, y int, vectorX int, vectorY int) bool {
@@ -140,15 +159,19 @@ func (g *CaroGame) checkWinByVector(x int, y int, vectorX int, vectorY int) bool
 	}
 
 	for maxBackword <= g.winConditionCount {
-		checkX := x - maxForward*vectorX
-		checkY := y - maxForward*vectorY
+		checkX := x - maxBackword*vectorX
+		checkY := y - maxBackword*vectorY
 		if g.validTile(checkX, checkY) && g.board[checkY][checkX] == g.currentPlayer.sign {
 			maxBackword++
 		} else {
 			break
 		}
 	}
-	return math.Abs(float64(maxForward)-float64(maxBackword)) >= float64(g.winConditionCount)
+	hasWinner := maxBackword >= g.winConditionCount || maxForward >= g.winConditionCount
+	if hasWinner {
+		fmt.Printf("vectorX: %d, vectorY: %d, maxForward: %d, maxBackword: %d\n", vectorX, vectorY, maxForward, maxBackword)
+	}
+	return hasWinner
 }
 
 func (g *CaroGame) CurrentPlayer() string {

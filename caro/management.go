@@ -1,5 +1,15 @@
 package caro
 
+const (
+	EMPTY               = " "
+	SIGN_1              = "X"
+	SIGN_2              = "O"
+	WIN_CONDITION_COUNT = 3
+	NEW_LINE            = "\n"
+	V_DASH              = "|"
+	H_DASH              = "----"
+)
+
 func NewGame(width, height int) *CaroGame {
 	players := [2]Player{
 		{sign: SIGN_1},
@@ -8,6 +18,7 @@ func NewGame(width, height int) *CaroGame {
 	game := &CaroGame{
 		width:             width,
 		height:            height,
+		totalTiles:        width * height,
 		board:             make([][]string, height),
 		players:           players,
 		currentPlayer:     players[0],
